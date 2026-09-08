@@ -40,7 +40,7 @@
       },
       "search": {
         "title": "Search for a city",
-        "description": "Enter a city name or code, such as 北京, 朝阳区, or 101010100. If there are several matches, choose the correct city on the next screen.",
+        "description": "Enter a city name or code, such as 北京, 朝阳区, or 101010100. Review the matches and select a city on the next screen.",
         "data": {
           "city_id": "City name or code"
         },
@@ -78,7 +78,7 @@
       },
       "city": {
         "title": "Choose a city",
-        "description": "Several locations match your search. Choose the correct city.",
+        "description": "Review the matched region and select a city. Check the region and code even when there is only one result.",
         "data": {
           "city_id": "City"
         }

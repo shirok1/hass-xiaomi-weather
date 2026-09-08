@@ -196,8 +196,6 @@ class XiaomiWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         self._locations = {location.city_id: location for location in locations}
         if not self._locations:
             return self._show_source_form({"base": "city_not_found"})
-        if len(self._locations) == 1:
-            return await self._async_select_location(locations[0])
         return await self.async_step_city()
 
     async def async_step_city(
