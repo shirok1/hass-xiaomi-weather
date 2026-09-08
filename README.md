@@ -73,3 +73,10 @@ uv run --locked pytest
 这不是已进入 Home Assistant Core 的集成，也不声明取得官方质量等级。正式提交 Core 前还需要：将独立于 HA 的 `api.py` 发布为有版本的外部 Python 库并引用；发布 `shirok1/hass-xiaomi-weather` 仓库；处理品牌资源、官方文档和 Core 仓库的 hassfest/完整 CI；确认维护与数据源接入方案可被上游接受。维护者为 `@shirok1`，仓库地址采用 `https://github.com/shirok1/hass-xiaomi-weather`。
 
 参考：[HA 天气实体](https://developers.home-assistant.io/docs/core/entity/weather/)、[数据获取](https://developers.home-assistant.io/docs/integration_fetching_data/)、[集成质量标准](https://developers.home-assistant.io/docs/core/integration-quality-scale/)。
+
+
+## 集成图标
+
+采用 Home Assistant 官方 Xiaomi 品牌资源，与官方 `xiaomi`、`xiaomi_aqara` 集成一致，包含方形 icon、横版 logo 及各自的高清 PNG。HA 没有为自定义域名直接引用另一个集成品牌图片的配置项，因此按官方支持方式将原图随组件放入 `brand/`，无需运行时下载；深色模式由 HA 原生回退处理。
+
+图片来源、固定版本和校验值见 [品牌资源说明](docs/brand-assets.md)。
