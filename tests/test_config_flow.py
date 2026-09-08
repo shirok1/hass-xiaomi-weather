@@ -342,7 +342,7 @@ async def test_reconfigure(
     result = await configure(hass, result["flow_id"], {})
     assert result["reason"] == "reconfigure_successful"
     assert entry.data["latitude"] == latitude
-    assert entry.title == "Beijing"
+    assert entry.title == ("home" if step == "zone" else "Beijing")
     await hass.async_block_till_done()
 
 
@@ -407,3 +407,50 @@ async def test_always_review_match_list(
         result["flow_id"], {"city_id": "101010100"}
     )
     assert result["step_id"] == "confirm"
+
+
+@pytest.mark.parametrize("custom_name", [None, "我的天气"])
+async def test_zone_name_defaults_and_override(
+    hass: HomeAssistant, client: AsyncMock, custom_name: str | None
+) -> None:
+    """Use the zone's friendly name, while keeping a user-supplied name on retry."""
+    result = await enter_source(hass, "zone")
+    hass.states.async_set(
+        "zone.home",
+        "0",
+        {"latitude": 39.9, "longitude": 116.4, "friendly_name": "家庭"},
+    )
+    result = await configure(hass, result["flow_id"], {"zone": "zone.home"})
+    assert result["data_schema"] is not None
+    display_schema = result["data_schema"].schema["display"].schema.schema
+    name_key = next(key for key in display_schema if key == "name")
+    assert name_key.default() == "家庭"
+    if custom_name:
+        client.side_effect = XiaomiWeatherError
+        result = await configure(
+            hass, result["flow_id"], {"display": {"name": custom_name}}
+        )
+        assert result["step_id"] == "confirm"
+        client.side_effect = None
+    result = await configure(hass, result["flow_id"], {})
+    assert result["data"]["name"] == (custom_name or "家庭")
+    assert result["title"] == (custom_name or "家庭")
+    await hass.async_block_till_done()
+
+
+async def test_zone_name_does_not_leak_to_new_source(
+    hass: HomeAssistant, client: AsyncMock
+) -> None:
+    result = await enter_source(hass, "zone")
+    hass.states.async_set(
+        "zone.home",
+        "0",
+        {"latitude": 40.0, "longitude": 117.0, "friendly_name": "家庭"},
+    )
+    result = await configure(hass, result["flow_id"], {"zone": "zone.home"})
+    result = await configure(hass, result["flow_id"], {"edit_location": True})
+    result = await configure(hass, result["flow_id"], {"next_step_id": "search"})
+    result = await configure(hass, result["flow_id"], {"city_id": "北京"})
+    result = await configure(hass, result["flow_id"], {})
+    assert result["title"] == "北京市"
+    await hass.async_block_till_done()

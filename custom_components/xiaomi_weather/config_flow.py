@@ -44,6 +44,7 @@ class XiaomiWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         self._locations: dict[str, Location] = {}
         self._resolved: dict[str, Any] = {}
         self._reconfigure = False
+        self._zone_name: str | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -52,6 +53,7 @@ class XiaomiWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         await self.async_set_unique_id(None)
         self._input = {}
         self._coordinates = {}
+        self._zone_name = None
         self._locations = {}
         self._resolved = {}
         return self.async_show_menu(
@@ -143,6 +145,7 @@ class XiaomiWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         self._locations = {}
         self._resolved = {}
         self._coordinates = {}
+        self._zone_name = None
         if self._source == "zone":
             zone_id = user_input[CONF_ZONE]
             state = self.hass.states.get(zone_id)
@@ -156,6 +159,8 @@ class XiaomiWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
                 or not -180 <= longitude <= 180
             ):
                 return self._show_source_form({CONF_ZONE: "invalid_zone"})
+            assert state is not None
+            self._zone_name = state.name
             self._coordinates = {CONF_LATITUDE: latitude, CONF_LONGITUDE: longitude}
         else:
             coordinates = (
@@ -235,7 +240,7 @@ class XiaomiWeatherConfigFlow(ConfigFlow, domain=DOMAIN):
         if entry and entry.unique_id != location.city_id:
             return self._show_source_form({"base": "different_city"})
         self._resolved = {
-            CONF_NAME: entry.title if entry else location.name,
+            CONF_NAME: self._zone_name or (entry.title if entry else location.name),
             CONF_CITY_ID: location.city_id,
             CONF_LATITUDE: self._coordinates.get(CONF_LATITUDE, location.latitude),
             CONF_LONGITUDE: self._coordinates.get(CONF_LONGITUDE, location.longitude),

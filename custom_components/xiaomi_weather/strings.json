@@ -22,7 +22,7 @@
       },
       "zone": {
         "title": "Use Home or another zone",
-        "description": "Choose Home or another zone. Its coordinates are captured now; later zone changes require reconfiguration.",
+        "description": "Choose Home or another zone. Its coordinates are captured now; later zone changes require reconfiguration. The service name defaults to the zone name and can be edited on the review screen.",
         "data": {
           "zone": "Zone"
         },
