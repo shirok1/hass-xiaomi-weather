@@ -1,0 +1,132 @@
+{
+  "title": "Xiaomi Weather",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Xiaomi Weather",
+        "description": "Where would you like to see the weather?",
+        "menu_options": {
+          "zone": "Use Home or another zone",
+          "search": "Search for a city",
+          "coordinates": "Enter coordinates"
+        }
+      },
+      "reconfigure": {
+        "title": "Update weather location",
+        "description": "Current city code: {city_id}. Choose how to enter the location. Previous coordinates will not be added to your inputs. To change cities, add a new integration.",
+        "menu_options": {
+          "zone": "Use Home or another zone",
+          "search": "Search for a city",
+          "coordinates": "Enter coordinates"
+        }
+      },
+      "zone": {
+        "title": "Use Home or another zone",
+        "description": "Choose Home or another zone. Its coordinates are captured now; later zone changes require reconfiguration.",
+        "data": {
+          "zone": "Zone"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Specify a city (optional)",
+            "data": {
+              "city_id": "City name or code"
+            },
+            "data_description": {
+              "city_id": "Leave empty to match a city from the coordinates, or specify a city name/code."
+            }
+          }
+        }
+      },
+      "search": {
+        "title": "Search for a city",
+        "description": "Enter a city name or code, such as 北京, 朝阳区, or 101010100. If there are several matches, choose the correct city on the next screen.",
+        "data": {
+          "city_id": "City name or code"
+        },
+        "sections": {
+          "coordinates": {
+            "name": "Specify coordinates (optional)",
+            "data": {
+              "latitude": "Latitude",
+              "longitude": "Longitude"
+            },
+            "data_description": {
+              "latitude": "Leave empty to use the city coordinates. To specify a location, enter both latitude and longitude."
+            }
+          }
+        }
+      },
+      "coordinates": {
+        "title": "Enter coordinates",
+        "description": "Enter the coordinates of the location. A city will be matched automatically.",
+        "data": {
+          "latitude": "Latitude",
+          "longitude": "Longitude"
+        },
+        "sections": {
+          "advanced": {
+            "name": "Specify a city (optional)",
+            "data": {
+              "city_id": "City name or code"
+            },
+            "data_description": {
+              "city_id": "Leave empty to match a city from the coordinates, or specify a city name/code."
+            }
+          }
+        }
+      },
+      "city": {
+        "title": "Choose a city",
+        "description": "Several locations match your search. Choose the correct city.",
+        "data": {
+          "city_id": "City"
+        }
+      },
+      "confirm": {
+        "title": "Review location",
+        "description": "City: {city_name}\n\nCity code: {city_id}\n\nLatitude: {latitude}\n\nLongitude: {longitude}\n\nSubmitting will verify weather access and save this location.",
+        "data": {
+          "edit_location": "Choose a different location"
+        },
+        "data_description": {
+          "edit_location": "Select and submit to return to the location menu without saving."
+        },
+        "sections": {
+          "display": {
+            "name": "Display settings",
+            "data": {
+              "name": "Name"
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to fetch weather right now. Your location and name have been kept. Retry, or choose a different location.",
+      "coordinates_required": "Provide both latitude and longitude, or leave both empty.",
+      "invalid_city_id": "Use a nine-digit city code starting with 101, or enter a city name.",
+      "city_not_found": "No supported mainland China city found. Check the input or try a more specific name.",
+      "different_city": "The resolved city differs from the existing city. Add a new integration for it.",
+      "invalid_zone": "The selected zone is missing or has invalid coordinates. Select a valid zone.",
+      "lookup_failed": "Unable to look up the city right now. Your inputs have been kept; please try again."
+    },
+    "abort": {
+      "already_configured": "This city is already configured.",
+      "reconfigure_successful": "Configuration updated."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "aqi": {
+        "name": "Air quality index (China)"
+      },
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      }
+    }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "domain": "xiaomi_weather",
+  "name": "Xiaomi Weather",
+  "codeowners": [
+    "@shirok1"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/shirok1/hass-xiaomi-weather",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.1.0",
+  "issue_tracker": "https://github.com/shirok1/hass-xiaomi-weather/issues",
+  "dependencies": [
+    "zone"
+  ]
+}

@@ -1,0 +1,132 @@
+{
+  "title": "小米天气",
+  "config": {
+    "step": {
+      "user": {
+        "title": "小米天气",
+        "description": "你希望查看哪里的天气？",
+        "menu_options": {
+          "zone": "使用家庭或其他区域",
+          "search": "搜索城市",
+          "coordinates": "输入经纬度"
+        }
+      },
+      "reconfigure": {
+        "title": "更新天气位置",
+        "description": "当前城市代码：{city_id}。请选择新的位置输入方式。本次输入不会混入旧坐标；仅支持更新同一城市，其他城市请添加新的集成。",
+        "menu_options": {
+          "zone": "使用家庭或其他区域",
+          "search": "搜索城市",
+          "coordinates": "输入经纬度"
+        }
+      },
+      "zone": {
+        "title": "使用家庭或其他区域",
+        "description": "选择“家庭”即可使用家庭坐标，也可选择其他区域。使用本次选择时的坐标；区域位置改变后需要重新配置。",
+        "data": {
+          "zone": "区域"
+        },
+        "sections": {
+          "advanced": {
+            "name": "指定城市（可选）",
+            "data": {
+              "city_id": "城市名称或代码"
+            },
+            "data_description": {
+              "city_id": "留空按坐标匹配城市；也可以指定城市名称或代码。"
+            }
+          }
+        }
+      },
+      "search": {
+        "title": "搜索城市",
+        "description": "输入名称或代码，例如：北京、朝阳区、101010100。名称有多个匹配时，可从候选城市中选择。",
+        "data": {
+          "city_id": "城市名称或代码"
+        },
+        "sections": {
+          "coordinates": {
+            "name": "指定坐标（可选）",
+            "data": {
+              "latitude": "纬度",
+              "longitude": "经度"
+            },
+            "data_description": {
+              "latitude": "留空使用城市坐标；如需指定位置，请同时填写纬度和经度。"
+            }
+          }
+        }
+      },
+      "coordinates": {
+        "title": "输入经纬度",
+        "description": "填写要查询位置的经纬度，将自动匹配城市。",
+        "data": {
+          "latitude": "纬度",
+          "longitude": "经度"
+        },
+        "sections": {
+          "advanced": {
+            "name": "指定城市（可选）",
+            "data": {
+              "city_id": "城市名称或代码"
+            },
+            "data_description": {
+              "city_id": "留空按坐标匹配城市；也可以指定城市名称或代码。"
+            }
+          }
+        }
+      },
+      "city": {
+        "title": "选择城市",
+        "description": "找到多个匹配地区，请选择正确的城市。",
+        "data": {
+          "city_id": "城市"
+        }
+      },
+      "confirm": {
+        "title": "确认位置",
+        "description": "城市：{city_name}\n\n城市代码：{city_id}\n\n纬度：{latitude}\n\n经度：{longitude}\n\n确认后将验证天气连接并保存。",
+        "data": {
+          "edit_location": "重新选择位置"
+        },
+        "data_description": {
+          "edit_location": "勾选后提交，返回位置来源选择，不保存本次结果。"
+        },
+        "sections": {
+          "display": {
+            "name": "显示设置",
+            "data": {
+              "name": "名称"
+            }
+          }
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "暂时无法获取天气，请稍后重试。已选位置和名称已保留；也可勾选“重新选择位置”。",
+      "coordinates_required": "经度和纬度须一起填写，或一起留空。",
+      "invalid_city_id": "城市代码应为 101 开头的九位数字，也可以直接输入城市名称。",
+      "city_not_found": "未找到支持的中国大陆城市，请检查输入或尝试更完整的城市名称。",
+      "different_city": "解析结果与原城市不同。请为新城市添加新的集成。",
+      "invalid_zone": "所选区域不存在或没有有效的经纬度，请重新选择。",
+      "lookup_failed": "暂时无法查询城市，请稍后重试。你的输入已保留。"
+    },
+    "abort": {
+      "already_configured": "该城市已配置。",
+      "reconfigure_successful": "配置已更新。"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "aqi": {
+        "name": "空气质量指数（中国）"
+      },
+      "pm25": {
+        "name": "PM2.5"
+      },
+      "pm10": {
+        "name": "PM10"
+      }
+    }
+  }
+}
