@@ -1,0 +1,18 @@
+{
+  "entity": {
+    "sensor": {
+      "car_wash": {
+        "default": "mdi:car-wash"
+      },
+      "primary_pollutant": {
+        "default": "mdi:air-filter"
+      },
+      "sports": {
+        "default": "mdi:run"
+      },
+      "typhoons": {
+        "default": "mdi:weather-hurricane"
+      }
+    }
+  }
+}
