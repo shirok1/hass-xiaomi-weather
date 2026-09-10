@@ -10,14 +10,75 @@ from typing import Any, cast
 from unittest.mock import AsyncMock
 
 import pytest
+from homeassistant.components.weather.const import WeatherEntityStateAttribute
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers.entity import EntityCategory
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.xiaomi_weather.api import XiaomiWeatherError, parse_weather
 from custom_components.xiaomi_weather.coordinator import XiaomiWeatherConfigEntry
 from custom_components.xiaomi_weather.sensor import XiaomiSensor
+
+
+async def test_standard_weather_state_and_units(
+    hass: HomeAssistant,
+    client: AsyncMock,
+    entry: MockConfigEntry,
+    full_payload: dict[str, Any],
+) -> None:
+    """Rich source data stays separate; HA converts native weather measurements."""
+    current = full_payload["current"]
+    current["temperature"]["value"] = "20"
+    current["feelsLike"]["value"] = "10"
+    current["visibility"]["value"] = "16.09344"
+    current["wind"]["speed"]["value"] = "16.09344"
+    current["pressure"]["value"] = "1015.9166"
+    full_payload["alerts"] = [{"title": "模拟预警"}]
+    client.return_value = parse_weather(full_payload)
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    state = hass.states.get("weather.beijing")
+    assert state is not None
+    allowed = set(WeatherEntityStateAttribute) | {
+        "attribution",
+        "friendly_name",
+        "supported_features",
+    }
+    assert state.attributes.keys() <= allowed
+    assert state.attributes["temperature"] == 20
+    assert state.attributes["apparent_temperature"] == 10
+    assert state.attributes["temperature_unit"] == "°C"
+    assert not {"ozone", "cloud_coverage", "dew_point", "wind_gust_speed"} & (
+        state.attributes.keys()
+    )
+
+    er.async_get(hass).async_update_entity_options(
+        "weather.beijing",
+        "weather",
+        {
+            "temperature_unit": "°F",
+            "pressure_unit": "inHg",
+            "wind_speed_unit": "mph",
+            "visibility_unit": "mi",
+        },
+    )
+    await hass.async_block_till_done()
+    state = hass.states.get("weather.beijing")
+    assert state is not None
+    assert state.attributes.keys() <= allowed
+    for key, expected in {
+        "temperature": 68,
+        "apparent_temperature": 50,
+        "pressure": 30,
+        "wind_speed": 10,
+        "visibility": 10,
+    }.items():
+        assert state.attributes[key] == pytest.approx(expected)
+    assert state.attributes["temperature_unit"] == "°F"
+    client.assert_awaited_once()
 
 
 def test_complete_live_response(full_payload: dict[str, Any]) -> None:
@@ -217,6 +278,32 @@ async def test_full_data_action_and_sensors(
     await hass.async_block_till_done()
     registry = er.async_get(hass)
 
+    diagnostic_keys = {
+        "observed_at",
+        "aqi_observed_at",
+        "provider_updated_at",
+        "nowcast_observed_at",
+    }
+    disabled_keys = {
+        "yesterday",
+        "yesterday_high",
+        "yesterday_low",
+        "yesterday_aqi",
+        "previous_hour",
+        "daily_aqi",
+        "hourly_aqi",
+    }
+    for registered in er.async_entries_for_config_entry(registry, entry.entry_id):
+        key = registered.unique_id.removeprefix("101010100_")
+        assert registered.entity_category == (
+            EntityCategory.DIAGNOSTIC if key in diagnostic_keys else None
+        )
+        assert registered.disabled_by == (
+            er.RegistryEntryDisabler.INTEGRATION if key in disabled_keys else None
+        )
+        if key in disabled_keys:
+            assert hass.states.get(registered.entity_id) is None
+
     def state(key: str):
         entity_id = registry.async_get_entity_id(
             "sensor", "xiaomi_weather", f"101010100_{key}"
@@ -234,7 +321,6 @@ async def test_full_data_action_and_sensors(
     assert state("moon_phase").state == "unknown"
     assert len(state("air_quality_suggestion").state) == 255
     assert state("air_quality_suggestion").attributes["description"] == "建议" * 200
-    assert len(state("daily_aqi").attributes["forecast"]) == 15
     assert state("pm25").attributes["source"] == "中国环境监测总站"
 
     result = await hass.services.async_call(

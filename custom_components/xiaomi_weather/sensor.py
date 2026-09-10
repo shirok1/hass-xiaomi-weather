@@ -16,6 +16,7 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import SensorData
@@ -71,6 +72,18 @@ DESCRIPTIONS = (
             key=key,
             translation_key=key,
             device_class=SensorDeviceClass.TIMESTAMP,
+            entity_category=(
+                EntityCategory.DIAGNOSTIC
+                if key
+                in (
+                    "observed_at",
+                    "aqi_observed_at",
+                    "provider_updated_at",
+                    "nowcast_observed_at",
+                )
+                else None
+            ),
+            entity_registry_enabled_default=key != "yesterday",
         )
         for key in (
             "observed_at",
@@ -88,12 +101,16 @@ DESCRIPTIONS = (
             translation_key=key,
             device_class=SensorDeviceClass.TEMPERATURE,
             native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+            entity_registry_enabled_default=False,
         )
         for key in ("yesterday_high", "yesterday_low", "previous_hour")
     ),
     *(
         SensorEntityDescription(
-            key=key, translation_key=key, device_class=SensorDeviceClass.AQI
+            key=key,
+            translation_key=key,
+            device_class=SensorDeviceClass.AQI,
+            entity_registry_enabled_default=False,
         )
         for key in ("daily_aqi", "hourly_aqi", "yesterday_aqi")
     ),

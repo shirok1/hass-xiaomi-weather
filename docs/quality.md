@@ -9,12 +9,17 @@
 | 轮询 | 每城市一个 coordinator、15 分钟更新、共享快照、对外深复制结构化数据、相同数据不重复推送 |
 | 天气 | 原生单位、日/小时/昼夜预报、内存缓存、更新通知、UTC 时间、日出日落判定、小时风按时间匹配 |
 | 扩展数据 | 30 个传感器、完整空气质量、日小时 AQI 独立时间轴、预警/台风列表、降水原始序列、昨日/上一时段观测、全部指数、源时间戳 |
+| 天气实体属性 | 仅 HA 标准天气属性及通用实体元数据；单位转换由 HA 处理，扩展传感器状态与原始响应不重复挂载；测试约束状态字段及用户单位覆盖 |
 | 完整响应动作 | 标准 HA 实体服务与实体访问校验、支持多目标、只读缓存、深复制、未加载/不可用时不能读取旧值 |
-| 实体 | 唯一 ID、service device、has_entity_name、传感器 device/state class |
+| 实体 | 唯一 ID、service device、has_entity_name、传感器 device/state class；4 个观测/更新时间归类诊断；昨日系列、上一时段温度及日/小时预报 AQI 共 7 个默认禁用，沿用 HA 注册机制保留已有启用设置 |
 | 异常 | 超时/HTTP/JSON/结构错误转换、unavailable 与恢复、缺失值显示 unknown |
 | 配置变更 | 三种位置输入方式均可重配置，同城解析后重载；城市变化以新条目表示 |
 | 隐私 | 诊断字段白名单，不返回位置、名称或服务端原文 |
 | 环境 | uv lock、HA 与 stubs 版本一致、Ruff、ty、pytest 覆盖率门槛 |
+
+## Core 天气实现参照
+
+参照版本为 Home Assistant Core **2026.9.1**：[Google Weather](https://www.home-assistant.io/integrations/google_weather/) 官方质量等级为 Platinum，其 [weather.py](https://github.com/home-assistant/core/blob/2026.9.1/homeassistant/components/google_weather/weather.py) 使用原生天气属性及缓存预报，没有提供商数据汇总的 `extra_state_attributes`。本集成沿用这一边界，按 [WeatherEntity 规范](https://developers.home-assistant.io/docs/core/entity/weather/) 提供有可靠源数据的标准字段。云量、露点、阵风等缺少源数据时不派生补值；污染物浓度通过有明确单位的传感器提供。此参照不代表本集成获得同等认证。
 
 ## 当前限制
 
