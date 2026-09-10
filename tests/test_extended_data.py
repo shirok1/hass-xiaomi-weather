@@ -91,7 +91,6 @@ def test_complete_live_response(full_payload: dict[str, Any]) -> None:
         "co": 0.3,
         "alerts": 0,
         "typhoons": 0,
-        "indices": 6,
         "car_wash": "0",
         "sports": "0",
         "yesterday_high": 25,
@@ -210,7 +209,7 @@ def test_failed_optional_blocks(full_payload: dict[str, Any], field: str) -> Non
     assert data.temperature == 19
     keys = {
         "aqi": ("o3", "co", "aqi_observed_at", "air_quality_suggestion"),
-        "indices": ("indices", "car_wash", "sports"),
+        "indices": ("car_wash", "sports"),
         "minutely": ("nowcast", "rain_distance", "nowcast_observed_at"),
         "yesterday": ("yesterday", "yesterday_high", "yesterday_aqi"),
         "forecastDaily": ("daily_aqi", "sunrise", "sunset", "moon_phase"),
@@ -274,9 +273,15 @@ async def test_full_data_action_and_sensors(
     full_payload["futureBlock"] = {"newField": [1, 2, 3]}
     client.return_value = parse_weather(full_payload)
     entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    retired = registry.async_get_or_create(
+        "sensor", "xiaomi_weather", "101010100_indices", config_entry=entry
+    )
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    registry = er.async_get(hass)
+    assert registry.async_get(retired.entity_id) is None
+    assert hass.states.get(retired.entity_id) is None
+    assert "indices" not in client.return_value.sensors
 
     diagnostic_keys = {
         "observed_at",
@@ -284,7 +289,7 @@ async def test_full_data_action_and_sensors(
         "provider_updated_at",
         "nowcast_observed_at",
     }
-    disabled_keys = {
+    disabled_keys = diagnostic_keys | {
         "yesterday",
         "yesterday_high",
         "yesterday_low",

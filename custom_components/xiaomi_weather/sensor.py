@@ -16,10 +16,12 @@ from homeassistant.const import (
     UnitOfTemperature,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import EntityCategory
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .api import SensorData
+from .const import DOMAIN
 from .coordinator import XiaomiWeatherConfigEntry
 from .entity import XiaomiWeatherEntity
 
@@ -83,7 +85,7 @@ DESCRIPTIONS = (
                 )
                 else None
             ),
-            entity_registry_enabled_default=key != "yesterday",
+            entity_registry_enabled_default=key in ("sunrise", "sunset"),
         )
         for key in (
             "observed_at",
@@ -128,7 +130,6 @@ DESCRIPTIONS = (
             "alerts",
             "typhoons",
             "nowcast",
-            "indices",
             "car_wash",
             "sports",
             "moon_phase",
@@ -143,6 +144,11 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Create sensors even if the first snapshot lacks optional measurements."""
+    registry = er.async_get(hass)
+    if entity_id := registry.async_get_entity_id(
+        "sensor", DOMAIN, f"{entry.unique_id}_indices"
+    ):
+        registry.async_remove(entity_id)
     async_add_entities(XiaomiSensor(entry, description) for description in DESCRIPTIONS)
 
 

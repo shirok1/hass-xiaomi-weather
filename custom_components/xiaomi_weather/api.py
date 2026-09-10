@@ -439,9 +439,6 @@ def parse_sensors(payload: dict[str, Any], now: datetime) -> dict[str, SensorDat
     valid_indices = isinstance(items, list) and all(
         isinstance(item, dict) for item in items
     )
-    result["indices"] = SensorData(
-        len(items) if valid_indices else None, deepcopy(indices)
-    )
     by_type = (
         {
             item["type"]: item.get("value")

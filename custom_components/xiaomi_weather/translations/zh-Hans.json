@@ -196,9 +196,6 @@
       "nowcast": {
         "name": "短时降水预报"
       },
-      "indices": {
-        "name": "天气指数数量"
-      },
       "car_wash": {
         "name": "洗车指数代码"
       },

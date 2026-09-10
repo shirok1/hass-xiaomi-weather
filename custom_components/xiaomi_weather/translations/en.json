@@ -196,9 +196,6 @@
       "nowcast": {
         "name": "Precipitation nowcast"
       },
-      "indices": {
-        "name": "Weather index count"
-      },
       "car_wash": {
         "name": "Car wash index code"
       },

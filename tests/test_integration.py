@@ -53,7 +53,7 @@ async def test_setup_forecast_unload(
     client.assert_awaited_once()
     entities = er.async_get(hass).entities
     assert (
-        len([e for e in entities.values() if e.config_entry_id == entry.entry_id]) == 31
+        len([e for e in entities.values() if e.config_entry_id == entry.entry_id]) == 30
     )
     diagnostics = await async_get_config_entry_diagnostics(
         hass, cast(XiaomiWeatherConfigEntry, entry)
