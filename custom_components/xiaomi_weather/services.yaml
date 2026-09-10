@@ -1,0 +1,5 @@
+get_data:
+  target:
+    entity:
+      integration: xiaomi_weather
+      domain: weather

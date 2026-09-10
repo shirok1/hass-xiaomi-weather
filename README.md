@@ -1,6 +1,6 @@
 # 小米天气 · Home Assistant
 
-使用小米天气云端数据的 custom integration，支持 UI 配置、多城市、实时天气、日预报、小时预报以及中国 AQI、PM2.5、PM10。每个城市每 15 分钟共享一次请求，预报服务从缓存读取。
+使用小米天气云端数据的 custom integration，支持 UI 配置、多城市、实时天气、日/小时/昼夜预报、完整空气质量、气象预警、短时降水、生活指数、昨日天气与台风摘要。每个城市每 15 分钟共享一次请求，预报及完整数据动作从缓存读取。
 
 ## 安装与配置
 
@@ -29,10 +29,27 @@
 
 ## 实体与预报
 
-- 天气：天气状况、摄氏温度、体感温度、湿度、hPa 气压、km/h 风速、风向、UV 指数。
-- 日预报：日期、最高/最低温度、白天天气状况；数量由服务端决定，实测 15 天。
-- 小时预报：时间、温度、天气状况；数量由服务端决定，实测 23 个时段。
-- 传感器：中国空气质量指数、PM2.5、PM10（µg/m³）。中国 AQI 不能直接当作美国 EPA AQI 使用。
+- 天气：天气状况、摄氏温度、体感温度、湿度、hPa 气压、km/h 风速、风向、UV 指数、有效的 km 能见度。
+- 日预报：日期、最高/最低温度、白天天气、白天风速/风向、日降水概率；数量由服务端决定，实测 15 天。
+- 小时预报：时间、温度、天气、风速/风向；风按自身时间戳对齐，实测 23 个时段。
+- 昼夜预报：白天最高温与夜间最低温、各自的天气和风，分别以该地日出/日落为时段起点；实测响应可生成 30 个时段。全天降水概率不会冒充半天概率。
+- 每个城市共 1 个天气实体和 30 个传感器；现有天气、AQI、PM2.5、PM10 实体身份保持不变。可选字段未返回时，对应传感器保留为 unknown。
+
+| 传感器 | 状态与附加信息 |
+| --- | --- |
+| AQI、六项污染物 | 中国 AQI；PM2.5、PM10、O₃、NO₂、SO₂ 为 μg/m³，CO 为 mg/m³；附发布时间、来源和污染物说明 |
+| 首要污染物、空气质量建议 | 来源文本；长建议的完整内容在 `description` 属性，状态最多 255 字符 |
+| 逐日/逐小时 AQI | 状态是序列第一点，`forecast` 属性为带 UTC 时间的完整序列；独立使用 AQI 发布时间，缺失点保留 null，不压缩时间轴 |
+| 天气预警、台风数量 | 状态为数量，`items` 属性保留每条记录的所有字段，包括类型、等级、详情、时间、坐标和编号（以实际返回为准）；空数组为 0，缺失或无效列表为 unknown |
+| 短时降水预报 | 状态为来源文案；属性保留整个 `minutely` 块，包括降水数组、概率数组、雨雪类型、状态和显示标志 |
+| 雨区距离 | `kmNum` 原值，km；数据源返回 0 就保留 0，不据此推断正在下雨 |
+| 天气指数、洗车/运动代码 | 指数数量及完整 `indices` 属性；洗车/运动单独提供原始代码，不把未经验证的代码翻译为“适宜” |
+| 昨日天气、昨日高低温、昨日 AQI | 昨日天气状态是数据源日期；属性保留昨日天气码、风、日出日落及其他字段；高低温和 AQI 可直接用于自动化 |
+| 上一时段观测温度 | `preHour` 中最新有效观测的温度，`observations` 属性保留全部历史观测；不会冒充当前实况 |
+| 日出、日落、月相 | 对应实况当地日期；太阳时间采用 UTC timestamp，月相使用来源字符串，不自行计算补值 |
+| 天气/空气质量/短时降水观测时间、数据源更新时间 | 来源时间戳，支持在自动化中自行判断数据年龄；下载成功不会把旧数据变成新观测 |
+
+中国 AQI 不能直接当作美国 EPA AQI 使用。上述预报 AQI 与昨日/上一时段观测不配置实况测量统计，避免将不同时间的数据混进当前测量的长期统计。
 
 预报通过 HA 的标准 `weather.get_forecasts` 提供，不写入 state attributes：
 
@@ -41,10 +58,32 @@ action: weather.get_forecasts
 target:
   entity_id: weather.beijing
 data:
-  type: daily # 或 hourly
+  type: daily # 或 hourly、twice_daily
 ```
 
 实际实体 ID 以 HA 创建的结果为准。预报时间输出 UTC，按数据源提供的时区解释；晴天/晴夜依据所选位置的日出日落计算。日预报采用白天天气码。
+
+## 读取全部小米数据
+
+`xiaomi_weather.get_data` 返回所选天气实体最近一次成功获取的**完整响应副本**，包括 `current`、`forecastDaily`、`forecastHourly`、`aqi`、`minutely`、`indices`、`alerts`、`typhoon`、`yesterday`、`preHour`，以及 `sourceMaps`、`brandInfo`、`url`、`chs`、`updateTime` 和将来新增的字段。只读缓存，不增加请求；实体不可用或已卸载时不能通过该动作读取旧缓存。
+
+```yaml
+action: xiaomi_weather.get_data
+target:
+  entity_id: weather.beijing
+response_variable: xiaomi
+```
+
+结果按实体 ID 分组，完整响应位于 `xiaomi['weather.beijing']['data']`。例如：
+
+```jinja
+{{ xiaomi['weather.beijing']['data']['forecastDaily']['aqi']['value'] }}
+{{ xiaomi['weather.beijing']['data']['minutely']['precipitation']['probability'] }}
+```
+
+此动作保留原始单位、缺失标记、状态和提供商字段，不执行归一化；使用其结果时须检查对应数据块的 `status`、时间及字段是否存在。完整响应按需返回，不会作为一个大属性持续写入实体状态；预警、短时降水、AQI 序列等传感器的已公开属性仍按 HA 的 Recorder 配置记录。
+
+短时降水的 `value`、`probability`、`isShow` 等已完整开放，但尚无有效非零降雨样本确认强度单位和四点概率的时间粒度，因此不标成 mm/h，也不生成“几分钟后必定下雨”的计算结果。洗车/运动保留代码，月相和能见度缺失则为空。小米返回的台风摘要全部保留；其他服务的雷达、台风轨迹、历史档案和本地月球天文计算不在本集成中。
 
 ## 故障处理与数据边界
 
@@ -64,7 +103,7 @@ uv run --locked ty check
 uv run --locked pytest
 ```
 
-`uv.lock` 固定环境；`homeassistant-stubs==2026.9.1` 同时固定 HA 运行时。ty 检查组件及测试，不全局忽略诊断。pytest 使用真实 Home Assistant 测试框架、真实本地 aiohttp HTTP 测试服务和去除冗余字段的实际接口 fixture；常规测试不请求小米服务。覆盖率门槛为 95%。GitHub Actions 执行同样的检查。
+`uv.lock` 固定环境；`homeassistant-stubs==2026.9.1` 同时固定 HA 运行时。ty 检查组件及测试，不全局忽略诊断。pytest 使用真实 Home Assistant 测试框架、真实本地 aiohttp HTTP 测试服务、精简及完整实际响应 fixture。非空预警/台风、非零降雨等测试使用明确标注的模拟数据，不代表已经验证此类实时天气。常规测试不请求小米服务。覆盖率门槛为 95%。GitHub Actions 执行同样的检查。
 
 ## 上游质量与提交边界
 

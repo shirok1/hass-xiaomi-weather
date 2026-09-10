@@ -1,11 +1,19 @@
 """Weather entity with cached daily and hourly forecasts."""
 
+from copy import deepcopy
+from typing import Any
+
 from homeassistant.components.weather import (
     Forecast,
     WeatherEntity,
     WeatherEntityFeature,
 )
-from homeassistant.const import UnitOfPressure, UnitOfSpeed, UnitOfTemperature
+from homeassistant.const import (
+    UnitOfLength,
+    UnitOfPressure,
+    UnitOfSpeed,
+    UnitOfTemperature,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
@@ -35,6 +43,14 @@ def _forecast(items: tuple[ForecastData, ...]) -> list[Forecast]:
             forecast["condition"] = item.condition
         if item.low is not None:
             forecast["native_templow"] = item.low
+        if item.wind_speed is not None:
+            forecast["native_wind_speed"] = item.wind_speed
+        if item.wind_bearing is not None:
+            forecast["wind_bearing"] = item.wind_bearing
+        if item.precipitation_probability is not None:
+            forecast["precipitation_probability"] = item.precipitation_probability
+        if item.is_daytime is not None:
+            forecast["is_daytime"] = item.is_daytime
         result.append(forecast)
     return result
 
@@ -47,8 +63,11 @@ class XiaomiWeather(XiaomiWeatherEntity, WeatherEntity):
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_native_pressure_unit = UnitOfPressure.HPA
     _attr_native_wind_speed_unit = UnitOfSpeed.KILOMETERS_PER_HOUR
+    _attr_native_visibility_unit = UnitOfLength.KILOMETERS
     _attr_supported_features = (
-        WeatherEntityFeature.FORECAST_DAILY | WeatherEntityFeature.FORECAST_HOURLY
+        WeatherEntityFeature.FORECAST_DAILY
+        | WeatherEntityFeature.FORECAST_HOURLY
+        | WeatherEntityFeature.FORECAST_TWICE_DAILY
     )
 
     def __init__(self, entry: XiaomiWeatherConfigEntry) -> None:
@@ -95,6 +114,19 @@ class XiaomiWeather(XiaomiWeatherEntity, WeatherEntity):
     def uv_index(self) -> float | None:
         """Return the UV index."""
         return self.coordinator.data.uv_index
+
+    @property
+    def native_visibility(self) -> float | None:
+        """Return visibility only when the source provides a valid km value."""
+        return self.coordinator.data.visibility
+
+    async def async_get_data(self) -> dict[str, Any]:
+        """Return all provider fields without network I/O or mutable cache leaks."""
+        return {"data": deepcopy(self.coordinator.data.raw)}
+
+    async def async_forecast_twice_daily(self) -> list[Forecast]:
+        """Return daytime highs and nighttime lows, anchored to solar times."""
+        return _forecast(self.coordinator.data.twice_daily)
 
     async def async_forecast_daily(self) -> list[Forecast]:
         """Return the cached daily forecast."""

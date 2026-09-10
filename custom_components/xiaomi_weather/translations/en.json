@@ -126,7 +126,94 @@
       },
       "pm10": {
         "name": "PM10"
+      },
+      "o3": {
+        "name": "Ozone"
+      },
+      "no2": {
+        "name": "Nitrogen dioxide"
+      },
+      "so2": {
+        "name": "Sulphur dioxide"
+      },
+      "co": {
+        "name": "Carbon monoxide"
+      },
+      "observed_at": {
+        "name": "Weather observation time"
+      },
+      "aqi_observed_at": {
+        "name": "Air quality observation time"
+      },
+      "provider_updated_at": {
+        "name": "Provider update time"
+      },
+      "sunrise": {
+        "name": "Sunrise"
+      },
+      "sunset": {
+        "name": "Sunset"
+      },
+      "nowcast_observed_at": {
+        "name": "Nowcast update time"
+      },
+      "yesterday": {
+        "name": "Yesterday"
+      },
+      "yesterday_high": {
+        "name": "Yesterday high temperature"
+      },
+      "yesterday_low": {
+        "name": "Yesterday low temperature"
+      },
+      "previous_hour": {
+        "name": "Previous observation temperature"
+      },
+      "daily_aqi": {
+        "name": "Daily forecast AQI"
+      },
+      "hourly_aqi": {
+        "name": "Hourly forecast AQI"
+      },
+      "yesterday_aqi": {
+        "name": "Yesterday AQI"
+      },
+      "rain_distance": {
+        "name": "Rain area distance"
+      },
+      "primary_pollutant": {
+        "name": "Primary pollutant"
+      },
+      "air_quality_suggestion": {
+        "name": "Air quality advice"
+      },
+      "alerts": {
+        "name": "Weather alert count"
+      },
+      "typhoons": {
+        "name": "Typhoon count"
+      },
+      "nowcast": {
+        "name": "Precipitation nowcast"
+      },
+      "indices": {
+        "name": "Weather index count"
+      },
+      "car_wash": {
+        "name": "Car wash index code"
+      },
+      "sports": {
+        "name": "Sports index code"
+      },
+      "moon_phase": {
+        "name": "Moon phase"
       }
+    }
+  },
+  "services": {
+    "get_data": {
+      "name": "Get all weather data",
+      "description": "Read the complete cached Xiaomi response for the selected weather entities. No additional request is made. Values retain provider units, timestamps and status flags."
     }
   }
 }

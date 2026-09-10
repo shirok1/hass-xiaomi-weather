@@ -25,6 +25,14 @@ def payload() -> dict[str, Any]:
 
 
 @pytest.fixture
+def full_payload() -> dict[str, Any]:
+    """Full public Beijing response captured on 2026-09-10; no invented alerts."""
+    return json.loads(
+        (Path(__file__).parent / "fixtures/weather_full.json").read_text()
+    )
+
+
+@pytest.fixture
 def client(payload: dict[str, Any]) -> Generator[AsyncMock]:
     """Mock only the external client boundary."""
     with patch(

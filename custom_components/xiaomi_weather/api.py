@@ -5,7 +5,8 @@ The endpoint is used by Xiaomi Weather and is not a documented public API.
 
 import math
 import re
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -62,6 +63,18 @@ class ForecastData:
     temperature: float
     low: float | None
     condition: str | None
+    wind_speed: float | None = None
+    wind_bearing: float | None = None
+    precipitation_probability: int | None = None
+    is_daytime: bool | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class SensorData:
+    """A measurement or summary with its provider details."""
+
+    value: str | float | datetime | None
+    attributes: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +94,10 @@ class WeatherData:
     aqi: float | None
     pm25: float | None
     pm10: float | None
+    visibility: float | None
+    twice_daily: tuple[ForecastData, ...]
+    sensors: dict[str, SensorData]
+    raw: dict[str, Any]
 
 
 def number(value: object) -> float | None:
@@ -107,8 +124,11 @@ def condition(code: object, time: datetime, suns: list[Any]) -> str | None:
     result = CONDITIONS.get(str(code))
     if result == "sunny":
         for sun in suns:
-            rise = timestamp(sun["from"])
-            setting = timestamp(sun["to"])
+            sun = block(sun)
+            rise = optional_time(sun.get("from"))
+            setting = optional_time(sun.get("to"))
+            if rise is None or setting is None:
+                continue
             local_zone = datetime.fromisoformat(sun["from"]).tzinfo
             if time.astimezone(local_zone).date() == rise.astimezone(local_zone).date():
                 return "sunny" if rise <= time < setting else "clear-night"
@@ -125,6 +145,59 @@ def values(series: dict[str, Any]) -> list[Any]:
     return result
 
 
+def block(value: Any) -> dict[str, Any]:
+    """Isolate missing or failed optional blocks from the current weather."""
+    return value if isinstance(value, dict) and value.get("status", 0) == 0 else {}
+
+
+def optional_time(value: Any) -> datetime | None:
+    """Do not invent timestamps for optional data."""
+    if not isinstance(value, str):
+        return None
+    try:
+        return timestamp(value)
+    except ValueError, OverflowError:
+        return None
+
+
+def series_items(value: Any) -> list[Any]:
+    """Return a valid optional array without failing other measurements."""
+    items = block(value).get("value")
+    return items if isinstance(items, list) else []
+
+
+def daily_value(series: Any, index: int, part: str | None = None) -> Any:
+    """Read a parallel daily field without shifting gaps."""
+    items = series_items(series)
+    value = items[index] if index < len(items) else None
+    return block(value).get(part) if part is not None else value
+
+
+def daily_wind(daily: dict[str, Any], index: int, part: str, key: str) -> float | None:
+    """Daily wind has explicit units, unlike the legacy hourly array."""
+    series = block(block(daily.get("wind")).get(key))
+    unit = "km/h" if key == "speed" else "°"
+    if series.get("unit") != unit:
+        return None
+    return number(daily_value(series, index, part))
+
+
+def probability(value: Any) -> int | None:
+    """weathercn daily probabilities are percentages, never infer a fraction."""
+    result = number(value)
+    return round(result) if result is not None and 0 <= result <= 100 else None
+
+
+def hourly_winds(hourly: dict[str, Any]) -> dict[datetime, dict[str, Any]]:
+    """Join wind by its own timestamp, not the temperature array position."""
+    return {
+        time: item
+        for item in series_items(hourly.get("wind"))
+        if isinstance(item, dict)
+        and (time := optional_time(item.get("datetime"))) is not None
+    }
+
+
 def parse_weather(payload: Any) -> WeatherData:
     """Validate required data and normalize the provider's parallel arrays."""
     try:
@@ -133,9 +206,10 @@ def parse_weather(payload: Any) -> WeatherData:
         if temp is None:
             raise ValueError("Missing current temperature")
         now = timestamp(current["pubTime"])
-        daily = payload.get("forecastDaily", {})
+        daily = block(payload.get("forecastDaily"))
         suns = values(daily.get("sunRiseSet", {}))
         days: list[ForecastData] = []
+        twice_daily: list[ForecastData] = []
         if daily.get("status", 0) == 0:
             temperatures = daily.get("temperature", {})
             if temperatures.get("unit", "℃") != "℃":
@@ -143,19 +217,61 @@ def parse_weather(payload: Any) -> WeatherData:
             codes = values(daily.get("weather", {}))
             for index, item in enumerate(values(temperatures)):
                 high, low = number(item["from"]), number(item["to"])
-                if high is None or index >= len(suns):
+                if (
+                    index >= len(suns)
+                    or optional_time(block(suns[index]).get("from")) is None
+                ):
                     continue
                 local = datetime.fromisoformat(suns[index]["from"])
                 date = timestamp(local.replace(hour=0, minute=0, second=0).isoformat())
                 code = codes[index]["from"] if index < len(codes) else None
-                days.append(ForecastData(date, high, low, CONDITIONS.get(str(code))))
-        hourly = payload.get("forecastHourly", {})
+                if high is not None:
+                    days.append(
+                        ForecastData(
+                            date,
+                            high,
+                            low,
+                            CONDITIONS.get(str(code)),
+                            daily_wind(daily, index, "from", "speed"),
+                            daily_wind(daily, index, "from", "direction"),
+                            probability(
+                                daily_value(
+                                    daily.get("precipitationProbability"), index
+                                )
+                            ),
+                        )
+                    )
+                for part, sun_key, temperature in (
+                    ("from", "from", high),
+                    ("to", "to", low),
+                ):
+                    period_time = optional_time(suns[index].get(sun_key))
+                    if temperature is None or period_time is None:
+                        continue
+                    code = daily_value(daily.get("weather"), index, part)
+                    daytime = part == "from"
+                    period_condition = CONDITIONS.get(str(code))
+                    if not daytime and period_condition == "sunny":
+                        period_condition = "clear-night"
+                    twice_daily.append(
+                        ForecastData(
+                            period_time,
+                            temperature,
+                            None,
+                            period_condition,
+                            daily_wind(daily, index, part, "speed"),
+                            daily_wind(daily, index, part, "direction"),
+                            is_daytime=daytime,
+                        )
+                    )
+        hourly = block(payload.get("forecastHourly"))
         hours: list[ForecastData] = []
         temperatures = hourly.get("temperature", {})
         if hourly.get("status", 0) == 0 and values(temperatures):
             if temperatures.get("unit", "℃") != "℃":
                 raise ValueError("Unexpected hourly temperature unit")
             start = timestamp(temperatures["pubTime"])
+            winds = hourly_winds(hourly)
             weather = hourly.get("weather", {})
             codes = (
                 values(weather)
@@ -168,13 +284,21 @@ def parse_weather(payload: Any) -> WeatherData:
                     continue
                 date = start + timedelta(hours=index)
                 code = codes[index] if index < len(codes) else None
+                wind_item = winds.get(date, {})
+                # weathercn's legacy hourly speed uses km/h without a unit field.
+                wind_unit = block(hourly.get("wind")).get("unit", "km/h")
                 hours.append(
-                    ForecastData(date, high, None, condition(code, date, suns))
+                    ForecastData(
+                        date,
+                        high,
+                        None,
+                        condition(code, date, suns),
+                        number(wind_item.get("speed")) if wind_unit == "km/h" else None,
+                        number(wind_item.get("direction")),
+                    )
                 )
-        wind = current.get("wind", {})
-        air = payload.get("aqi", {})
-        if air.get("status", 0) != 0:
-            air = {}
+        wind = block(current.get("wind"))
+        air = block(payload.get("aqi"))
         return WeatherData(
             temperature=temp,
             condition=condition(current.get("weather"), now, suns),
@@ -189,6 +313,10 @@ def parse_weather(payload: Any) -> WeatherData:
             aqi=number(air.get("aqi")),
             pm25=number(air.get("pm25")),
             pm10=number(air.get("pm10")),
+            visibility=measurement(block(current.get("visibility")), "km"),
+            twice_daily=tuple(twice_daily),
+            sensors=parse_sensors(payload, now),
+            raw=deepcopy(payload),
         )
     except (KeyError, TypeError, ValueError, AttributeError, OverflowError) as err:
         raise XiaomiWeatherError("Invalid weather response") from err
@@ -199,6 +327,165 @@ def measurement(value: dict[str, Any], unit: str) -> float | None:
     if value.get("unit") != unit:
         return None
     return number(value.get("value"))
+
+
+def text_value(value: Any) -> str | None:
+    """Keep long provider text in attributes, within HA's state length limit."""
+    return value[:255] if isinstance(value, str) and value.strip() else None
+
+
+def aqi_forecast(series: Any, step: timedelta) -> SensorData:
+    """Use the AQI series' own publication time, preserving missing periods."""
+    series = block(series)
+    start = optional_time(series.get("pubTime"))
+    points = []
+    if start is not None:
+        points = [
+            {"datetime": (start + index * step).isoformat(), "aqi": number(value)}
+            for index, value in enumerate(series_items(series))
+        ]
+    return SensorData(
+        points[0]["aqi"] if points else None,
+        {"forecast": points, "pub_time": series.get("pubTime")},
+    )
+
+
+def parse_sensors(payload: dict[str, Any], now: datetime) -> dict[str, SensorData]:
+    """Expose all weather blocks; unfamiliar details remain provider values."""
+    air = block(payload.get("aqi"))
+    result = {
+        key: SensorData(
+            number(air.get(key)),
+            {
+                "description": air.get(f"{key}Desc"),
+                "pub_time": air.get("pubTime"),
+                "source": air.get("src"),
+            },
+        )
+        for key in ("o3", "no2", "so2", "co")
+    }
+    result["primary_pollutant"] = SensorData(text_value(air.get("primary")))
+    result["air_quality_suggestion"] = SensorData(
+        text_value(air.get("suggest")), {"description": air.get("suggest")}
+    )
+    result["observed_at"] = SensorData(now)
+    result["aqi_observed_at"] = SensorData(optional_time(air.get("pubTime")))
+    updated = number(payload.get("updateTime"))
+    try:
+        updated_at = (
+            datetime.fromtimestamp(updated / 1000, UTC) if updated is not None else None
+        )
+    except OverflowError, OSError, ValueError:
+        updated_at = None
+    result["provider_updated_at"] = SensorData(updated_at)
+
+    daily = block(payload.get("forecastDaily"))
+    hourly = block(payload.get("forecastHourly"))
+    for key, section, step in (
+        ("daily_aqi", daily, timedelta(days=1)),
+        ("hourly_aqi", hourly, timedelta(hours=1)),
+    ):
+        result[key] = aqi_forecast(section.get("aqi"), step)
+    sun = {}
+    moon = None
+    for index, item in enumerate(series_items(daily.get("sunRiseSet"))):
+        rise = optional_time(block(item).get("from"))
+        if rise is not None:
+            local = datetime.fromisoformat(item["from"])
+            if now.astimezone(local.tzinfo).date() == local.date():
+                sun = item
+                moon = daily_value(daily.get("moonPhase"), index)
+                break
+    result["sunrise"] = SensorData(optional_time(sun.get("from")))
+    result["sunset"] = SensorData(optional_time(sun.get("to")))
+    result["moon_phase"] = SensorData(text_value(moon))
+
+    for key, field_name in (("alerts", "alerts"), ("typhoons", "typhoon")):
+        items = payload.get(field_name)
+        valid = isinstance(items, list) and all(
+            isinstance(item, dict) for item in items
+        )
+        result[key] = SensorData(
+            len(items) if valid else None,
+            {"items": deepcopy(items) if valid else []},
+        )
+
+    minutely = block(payload.get("minutely"))
+    precipitation = block(minutely.get("precipitation"))
+    summary = next(
+        (
+            value
+            for value in (
+                text_value(precipitation.get("description")),
+                text_value(precipitation.get("shortDescription")),
+                text_value(block(minutely.get("probability")).get("probabilityDescV2")),
+                text_value(block(minutely.get("probability")).get("maxProbability")),
+                text_value(block(minutely.get("probability")).get("probabilityDesc")),
+            )
+            if value is not None
+        ),
+        None,
+    )
+    if "precipitation" in minutely and not precipitation:
+        summary = None
+    result["nowcast"] = SensorData(summary, deepcopy(minutely))
+    result["rain_distance"] = SensorData(number(precipitation.get("kmNum")))
+    result["nowcast_observed_at"] = SensorData(
+        optional_time(precipitation.get("pubTime"))
+    )
+
+    indices = block(payload.get("indices"))
+    items = indices.get("indices")
+    valid_indices = isinstance(items, list) and all(
+        isinstance(item, dict) for item in items
+    )
+    result["indices"] = SensorData(
+        len(items) if valid_indices else None, deepcopy(indices)
+    )
+    by_type = (
+        {
+            item["type"]: item.get("value")
+            for item in items
+            if isinstance(item.get("type"), str)
+        }
+        if valid_indices
+        else {}
+    )
+    for key, provider_key in (("car_wash", "carWash"), ("sports", "sports")):
+        result[key] = SensorData(
+            text_value(by_type.get(provider_key)), {"pub_time": indices.get("pubTime")}
+        )
+
+    yesterday = block(payload.get("yesterday"))
+    result["yesterday"] = SensorData(
+        optional_time(yesterday.get("date")), deepcopy(yesterday)
+    )
+    for key, provider_key in (
+        ("yesterday_high", "tempMax"),
+        ("yesterday_low", "tempMin"),
+        ("yesterday_aqi", "aqi"),
+    ):
+        result[key] = SensorData(number(yesterday.get(provider_key)))
+
+    previous = payload.get("preHour")
+    latest = (
+        max(
+            (
+                item
+                for item in previous
+                if block(item) and optional_time(item.get("pubTime")) is not None
+            ),
+            key=lambda item: timestamp(item["pubTime"]),
+            default={},
+        )
+        if isinstance(previous, list)
+        else {}
+    )
+    result["previous_hour"] = SensorData(
+        measurement(block(latest.get("temperature")), "℃"),
+        {"observations": deepcopy(previous) if isinstance(previous, list) else []},
+    )
+    return result
 
 
 class XiaomiWeatherClient:

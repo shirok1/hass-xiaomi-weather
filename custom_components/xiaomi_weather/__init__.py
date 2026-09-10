@@ -1,11 +1,28 @@
 """The Xiaomi Weather integration."""
 
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, SupportsResponse
+from homeassistant.helpers.service import async_register_platform_entity_service
+from homeassistant.helpers.typing import ConfigType
 
+from .const import DOMAIN
 from .coordinator import XiaomiWeatherConfigEntry, XiaomiWeatherCoordinator
 
 PLATFORMS = [Platform.WEATHER, Platform.SENSOR]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register the cached full-response action, including before entries load."""
+    async_register_platform_entity_service(
+        hass,
+        DOMAIN,
+        "get_data",
+        entity_domain="weather",
+        schema={},
+        func="async_get_data",
+        supports_response=SupportsResponse.ONLY,
+    )
+    return True
 
 
 async def async_setup_entry(

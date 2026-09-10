@@ -126,7 +126,94 @@
       },
       "pm10": {
         "name": "PM10"
+      },
+      "o3": {
+        "name": "臭氧"
+      },
+      "no2": {
+        "name": "二氧化氮"
+      },
+      "so2": {
+        "name": "二氧化硫"
+      },
+      "co": {
+        "name": "一氧化碳"
+      },
+      "observed_at": {
+        "name": "天气观测时间"
+      },
+      "aqi_observed_at": {
+        "name": "空气质量观测时间"
+      },
+      "provider_updated_at": {
+        "name": "数据源更新时间"
+      },
+      "sunrise": {
+        "name": "日出"
+      },
+      "sunset": {
+        "name": "日落"
+      },
+      "nowcast_observed_at": {
+        "name": "短时降水更新时间"
+      },
+      "yesterday": {
+        "name": "昨日天气"
+      },
+      "yesterday_high": {
+        "name": "昨日最高温度"
+      },
+      "yesterday_low": {
+        "name": "昨日最低温度"
+      },
+      "previous_hour": {
+        "name": "上一时段观测温度"
+      },
+      "daily_aqi": {
+        "name": "逐日预报 AQI"
+      },
+      "hourly_aqi": {
+        "name": "逐小时预报 AQI"
+      },
+      "yesterday_aqi": {
+        "name": "昨日 AQI"
+      },
+      "rain_distance": {
+        "name": "雨区距离"
+      },
+      "primary_pollutant": {
+        "name": "首要污染物"
+      },
+      "air_quality_suggestion": {
+        "name": "空气质量建议"
+      },
+      "alerts": {
+        "name": "天气预警数量"
+      },
+      "typhoons": {
+        "name": "台风数量"
+      },
+      "nowcast": {
+        "name": "短时降水预报"
+      },
+      "indices": {
+        "name": "天气指数数量"
+      },
+      "car_wash": {
+        "name": "洗车指数代码"
+      },
+      "sports": {
+        "name": "运动指数代码"
+      },
+      "moon_phase": {
+        "name": "月相"
       }
+    }
+  },
+  "services": {
+    "get_data": {
+      "name": "读取全部天气数据",
+      "description": "读取所选天气实体缓存中的完整小米响应，不增加网络请求。保留数据源的单位、时间、状态及所有原始字段。"
     }
   }
 }

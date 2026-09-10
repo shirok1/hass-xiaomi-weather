@@ -28,7 +28,7 @@ async def test_setup_forecast_unload(
     assert state.state == "partlycloudy"
     assert state.attributes["temperature"] == 20
     assert state.attributes["humidity"] == 71
-    for forecast_type, count in [("daily", 15), ("hourly", 23)]:
+    for forecast_type, count in [("daily", 15), ("hourly", 23), ("twice_daily", 30)]:
         result = await hass.services.async_call(
             "weather",
             "get_forecasts",
@@ -38,10 +38,22 @@ async def test_setup_forecast_unload(
         )
         assert result is not None
         assert len(result["weather.beijing"]["forecast"]) == count
+        forecast = result["weather.beijing"]["forecast"][0]
+        if forecast_type == "hourly":
+            assert forecast["wind_speed"] == 4.6
+            assert forecast["wind_bearing"] == 37.05
+        else:
+            assert forecast["wind_speed"] == 6
+            assert forecast["wind_bearing"] == 27
+        if forecast_type == "daily":
+            assert forecast["precipitation_probability"] == 0
+        if forecast_type == "twice_daily":
+            assert forecast["is_daytime"] is True
+            assert result["weather.beijing"]["forecast"][1]["is_daytime"] is False
     client.assert_awaited_once()
     entities = er.async_get(hass).entities
     assert (
-        len([e for e in entities.values() if e.config_entry_id == entry.entry_id]) == 4
+        len([e for e in entities.values() if e.config_entry_id == entry.entry_id]) == 31
     )
     diagnostics = await async_get_config_entry_diagnostics(
         hass, cast(XiaomiWeatherConfigEntry, entry)
